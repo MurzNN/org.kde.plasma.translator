@@ -55,6 +55,15 @@ PlasmoidItem {
     property bool actl: false
     property bool actr: false
     property string windowtext
+    // Text that the popup translated. Empty for a message that is not a translation
+    property string sourceText: ""
+    property bool showSource: false
+    // Collapsed until the user opens it, including on each new selection
+    property bool sourceExpanded: false
+    // Language of that text. Empty means Autodetect
+    property string popupSourceCode: ""
+    // True after a choice in the popup. A new selection goes back to Autodetect
+    property bool popupSourceLocked: false
     property string tmpfolder: StandardPaths.writableLocation(
                                    StandardPaths.TempLocation).toString(
                                    ).replace("file://", "")
@@ -84,6 +93,7 @@ PlasmoidItem {
         color: Kirigami.Theme.backgroundColor
         onClosing: {
             windowtext = ""
+            root.resetPopupSource()
             root.selectionBusy = false
             root.selectionRequest++ // drops the translation still running
             root.clearSelection()
@@ -97,6 +107,146 @@ PlasmoidItem {
             anchors.top: parent.top
             anchors.topMargin: Kirigami.Units.smallSpacing
             anchors.bottom: parent.bottom
+            RowLayout {
+                visible: root.showSource
+                Layout.fillWidth: true
+                PlasmaComponents.ToolButton {
+                    id: sourceToggle
+                    checkable: true
+                    icon.name: root.sourceExpanded ? "arrow-down" : "arrow-right"
+                    text: i18n("Source")
+                    display: QQC2.AbstractButton.TextBesideIcon
+                    onClicked: {
+                        if (root.sourceExpanded) {
+                            root.sourceExpanded = false
+                        } else {
+                            root.expandPopupSource()
+                        }
+                    }
+                    // A click writes checked itself. This binding follows sourceExpanded,
+                    // including when the next selection collapses the section
+                    Binding on checked {
+                        value: root.sourceExpanded
+                    }
+                }
+                ComboBox3 {
+                    id: sourceLanguage
+                    editable: true
+                    model: [i18n("Autodetect")].concat(root.langlist)
+                    Layout.fillWidth: false
+                    Layout.alignment: Qt.AlignVCenter
+                    // Closed width fits 80% of the language names. Longer names
+                    // are clipped here; the open menu stays wide enough for them
+                    property int nameLimit: 0
+                    TextMetrics {
+                        id: nameMetrics
+                        font: sourceLanguage.font
+                    }
+                    function measureNameLimit() {
+                        var names = root.langlist
+                        if (!names || names.length === 0) {
+                            nameMetrics.text = i18n("Autodetect")
+                            return Math.ceil(nameMetrics.width)
+                        }
+                        var widths = []
+                        for (var i = 0; i < names.length; i++) {
+                            nameMetrics.text = names[i]
+                            widths.push(nameMetrics.width)
+                        }
+                        widths.sort(function(a, b) { return a - b })
+                        var index = Math.ceil(names.length * 0.8) - 1
+                        if (index < 0) {
+                            index = 0
+                        }
+                        // Autodetect is the default entry, not one of the long names
+                        nameMetrics.text = i18n("Autodetect")
+                        return Math.ceil(Math.max(widths[index], nameMetrics.width))
+                    }
+                    readonly property int closedWidth: {
+                        var extra = leftPadding + rightPadding
+                        if (indicator) {
+                            extra += indicator.implicitWidth + spacing
+                        }
+                        return nameLimit + extra
+                    }
+                    Layout.preferredWidth: closedWidth
+                    Layout.minimumWidth: closedWidth
+                    Layout.maximumWidth: closedWidth
+                    onModelChanged: {
+                        currentIndex = root.popupSourceListIndex(root.popupSourceCode)
+                        nameLimit = measureNameLimit()
+                    }
+                    Component.onCompleted: {
+                        nameLimit = measureNameLimit()
+                        popup.width = Qt.binding(function() {
+                            return Math.max(sourceLanguage.width,
+                                             sourceLanguage.implicitContentWidth
+                                             + sourceLanguage.leftPadding
+                                             + sourceLanguage.rightPadding)
+                        })
+                    }
+                    // A choice is kept for this text. Autodetect lets the engine decide again
+                    onActivated: function(index) {
+                        if (index <= 0) {
+                            root.popupSourceLocked = false
+                            root.popupSourceCode = ""
+                        } else {
+                            root.popupSourceLocked = true
+                            root.popupSourceCode = root.codelist[index - 1]
+                        }
+                        root.retranslatePopupSource()
+                    }
+                }
+                PlasmaComponents.Label {
+                    visible: !root.sourceExpanded
+                    Layout.fillWidth: true
+                    // Prefer the remaining space so a long text elides instead of widening the row
+                    Layout.preferredWidth: 0
+                    text: root.sourceText
+                    color: Kirigami.Theme.disabledTextColor
+                    elide: Text.ElideRight
+                    wrapMode: Text.NoWrap
+                    maximumLineCount: 1
+                    MouseArea {
+                        z: 1
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.expandPopupSource()
+                    }
+                }
+                Item {
+                    visible: root.sourceExpanded
+                    Layout.fillWidth: true
+                }
+                PlasmaComponents.ToolButton {
+                    visible: root.sourceExpanded
+                    icon.name: "globe"
+                    text: i18n("Translate")
+                    display: QQC2.AbstractButton.TextBesideIcon
+                    enabled: sourceArea.text.length > 0 && sourceArea.text.length < 5001
+                             && !root.selectionBusy
+                    onClicked: root.retranslatePopupSource()
+                    QQC2.ToolTip.text: i18n("Translate (CTRL+Enter)")
+                    QQC2.ToolTip.visible: hovered
+                }
+            }
+            PlasmaComponents.ScrollView {
+                visible: root.showSource && root.sourceExpanded
+                Layout.fillWidth: true
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 4
+                Layout.maximumHeight: Kirigami.Units.gridUnit * 4
+                // Text wraps, so only vertical scrolling is needed
+                QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
+                PlasmaComponents.TextArea {
+                    id: sourceArea
+                    wrapMode: Text.Wrap
+                    onTextChanged: {
+                        if (root.sourceText !== text) {
+                            root.sourceText = text
+                        }
+                    }
+                }
+            }
             RowLayout {
                 Layout.minimumWidth: parent.width
                 width: parent.width
@@ -114,17 +264,21 @@ PlasmoidItem {
                     model: root.langlist
                     currentIndex: root.codelist.indexOf(nativeCode())
                     // Only a choice made here is kept for the next texts: the
-                    // index also changes to show the language a text went to
+                    // index also changes to show the language a text went to.
+                    // Retranslate the text already in the popup; reading the
+                    // selection again would drop an edit
                     onActivated: function(index) {
                         root.popupIndex = index
-                        falsetime.start()
+                        if (root.showSource) {
+                            root.retranslatePopupSource()
+                        }
                     }
                 }
                 PlasmaComponents.ToolButton {
                     Layout.fillWidth: false
                     Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                     icon.name: "edit-copy"
-                    enabled: windowarea.focus
+                    enabled: windowarea.text.length > 0
                     QQC2.ToolTip.text: i18n("Copy")
                     QQC2.ToolTip.visible: hovered
                     onClicked: {
@@ -167,6 +321,14 @@ PlasmoidItem {
             onTriggered: {
                 info.close()
             }
+        }
+        QQC2.Action {
+            shortcut: "Ctrl+Return"
+            onTriggered: root.retranslatePopupSource()
+        }
+        QQC2.Action {
+            shortcut: "Ctrl+Enter"
+            onTriggered: root.retranslatePopupSource()
         }
     }
 
@@ -376,6 +538,56 @@ PlasmoidItem {
         windowarea.focus = true
     }
 
+    function expandPopupSource() {
+        root.sourceExpanded = true
+        Qt.callLater(function() { sourceArea.forceActiveFocus() })
+    }
+
+    function resetPopupSource() {
+        root.showSource = false
+        root.sourceExpanded = false
+        root.sourceText = ""
+        root.popupSourceLocked = false
+        root.popupSourceCode = ""
+    }
+
+    // Index in the popup's source menu: 0 is Autodetect
+    function popupSourceListIndex(code) {
+        if (!code) {
+            return 0
+        }
+        var i = root.codelist.indexOf(code)
+        if (i === -1) {
+            i = root.codelist.indexOf(code.split("-")[0])
+        }
+        return i === -1 ? 0 : i + 1
+    }
+
+    // The menu writes its own index. Follow the detected or chosen language,
+    // including when a new selection returns to Autodetect
+    onPopupSourceCodeChanged: {
+        var index = popupSourceListIndex(popupSourceCode)
+        if (sourceLanguage.currentIndex !== index) {
+            sourceLanguage.currentIndex = index
+        }
+    }
+
+    // Keep the field in sync when the selection is replaced. Typing updates
+    // sourceText from the field, so this assignment is skipped then
+    onSourceTextChanged: {
+        if (sourceArea.text !== sourceText) {
+            sourceArea.text = sourceText
+        }
+    }
+
+    // Language the popup translates into, and the one used when the text is already in it
+    function popupLanguages() {
+        var nativeLang = nativeCode()
+        var popup = root.popupIndex == -1 ? nativeLang : root.codelist[root.popupIndex]
+        var favorite = root.autoDestination ? secondCode() : root.codelist[root.destinationIndex] || popup
+        return { target: popup, other: Lang.otherTarget(popup, favorite, nativeLang) }
+    }
+
     // Translates a selected text into the popup's language (the native one
     // by default). A text that comes back nearly unchanged was already in that
     // language: it goes to Lang.otherTarget instead.
@@ -384,16 +596,62 @@ PlasmoidItem {
             root.expanded = true
             return
         }
-        var nativeLang = nativeCode()
-        var popup = root.popupIndex == -1 ? nativeLang : root.codelist[root.popupIndex]
-        var favorite = root.autoDestination ? secondCode() : root.codelist[root.destinationIndex] || popup
+        root.sourceText = text
+        root.showSource = true
+        root.sourceExpanded = false
+        var langs = popupLanguages()
         // LLMs take a few seconds: open the window at once
         var request = ++root.selectionRequest
+        // After the request id changes, a detection still in flight cannot write its language back
+        root.popupSourceLocked = false
+        root.popupSourceCode = ""
         showSelectionWindow("")
         root.selectionBusy = true
-        translateOrOther(text, "auto", popup, Lang.otherTarget(popup, favorite, nativeLang),
-                         function(output, used) {
-            showTranslation(output, used, request)
+        identifyPopupSource(text, request)
+        translateOrOther(text, "auto", langs.target, langs.other, function(output, used, ok, detected) {
+            showTranslation(output, used, request, detected)
+        })
+    }
+
+    // Translates the text currently shown in the popup. The field is left as the user edited it
+    function retranslatePopupSource() {
+        if (!root.showSource) {
+            return
+        }
+        var text = sourceArea.text
+        if (text.length === 0 || text.length > 5000) {
+            return
+        }
+        var langs = popupLanguages()
+        var request = ++root.selectionRequest
+        // A chosen language stays. Autodetect is worked out again for the edited text
+        if (!root.popupSourceLocked) {
+            root.popupSourceCode = ""
+        }
+        var source = root.popupSourceLocked ? root.popupSourceCode : "auto"
+        root.selectionBusy = true
+        showSelectionWindow("")
+        if (!root.popupSourceLocked) {
+            identifyPopupSource(text, request)
+        }
+        translateOrOther(text, source, langs.target, langs.other, function(output, used, ok, detected) {
+            showTranslation(output, used, request, detected)
+        })
+    }
+
+    // trans -identify for the built-in engines. Servers report the language with the translation
+    function identifyPopupSource(text, request) {
+        if (root.usesServer || root.popupSourceLocked) {
+            return
+        }
+        runner.run("trans -identify -no-ansi -- " + Shell.quote(text), function(stdout) {
+            if (request !== root.selectionRequest) {
+                return
+            }
+            var code = Lang.identifiedCode(stdout || "")
+            if (code.length > 0) {
+                root.popupSourceCode = code
+            }
         })
     }
 
@@ -412,15 +670,19 @@ PlasmoidItem {
         })
     }
 
-    function showTranslation(output, target, request) {
+    function showTranslation(output, target, request, detected) {
         if (request !== root.selectionRequest) {
             return // window closed or another language chosen meanwhile
         }
         root.selectionBusy = false
         if (output.length === 0) {
             info.hide()
+            root.resetPopupSource()
             root.expanded = true
             return
+        }
+        if (detected && !root.popupSourceLocked) {
+            root.popupSourceCode = detected
         }
         destinationpopup.currentIndex = root.codelist.indexOf(target)
         showSelectionWindow(output)
@@ -511,6 +773,7 @@ PlasmoidItem {
         onTriggered: {
             root.expanded = false
             if (!root.selectionToolFound) {
+                root.resetPopupSource()
                 showSelectionWindow(i18n("Reading the selected text needs %1, which is not installed.",
                                          root.selectionPackage))
                 return
