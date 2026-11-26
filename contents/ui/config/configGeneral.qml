@@ -10,6 +10,8 @@ import ".."
 import "../servers/servers.js" as Servers
 import "../version.js" as Version
 import "../lang.js" as Lang
+import "../shortcut.js" as Shortcut
+import org.kde.kquickcontrols as KQuickControls
 
 Item {
     id: configGeneral
@@ -51,6 +53,18 @@ Item {
     property bool cfg_dictionaryDefault
     property bool cfg_keepAbove
     property bool cfg_keepAboveDefault
+    property string cfg_selectionShortcut
+    property string cfg_selectionShortcutDefault
+    // Bumped by the shortcut. Declared so opening the page does not warn.
+    property int cfg_selectionRequest
+    property int cfg_selectionRequestDefault
+    property string cfg_selectionScript
+    property string cfg_selectionScriptDefault
+    property bool cfg_selectionShortcutMigrated
+    property bool cfg_selectionShortcutMigratedDefault
+    // Read once on upgrade, then cleared. Declared so opening the page does not warn.
+    property string cfg_openShortcut
+    property string cfg_openShortcutDefault
     property var secondmodel: {
         var languages = []
         try {
@@ -555,6 +569,24 @@ Item {
                 QQC2.ToolTip.text: i18n("With the Auto destination, texts already in the native language are translated into this one.")
                 QQC2.ToolTip.visible: hovered
                 QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            QQC2.Label {
+                text: i18n("Translate the selection:")
+                QQC2.ToolTip.text: i18n("Translates the text selected in any window and shows it in a popup. The shortcut that opens the widget is on the Shortcuts page.")
+                QQC2.ToolTip.visible: hovered
+                QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+            }
+            KQuickControls.KeySequenceItem {
+                id: selectionShortcutItem
+                keySequence: configGeneral.cfg_selectionShortcut
+                multiKeyShortcutsAllowed: false
+                onKeySequenceModified: configGeneral.cfg_selectionShortcut = Shortcut.sequenceText(selectionShortcutItem.keySequence)
             }
             Item {
                 Layout.fillWidth: true

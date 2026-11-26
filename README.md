@@ -15,7 +15,8 @@ But it can now also translate **fully offline** with your own servers: [LibreTra
 - Translate **fully offline** with your own servers: LibreTranslate, or LLMs through Ollama or LM Studio (see below)
 - Online services too: **Google**, **Yandex**, **Bing** and **Apertium** through translate-shell, DeepL, or any OpenAI-compatible API
 - Translate text between 160+ languages
-- Translate the text selected in any window with a global shortcut, in the right direction
+- Open the widget with a global shortcut and focus the input, the same as clicking the icon
+- Translate the text selected in any window with a shortcut from the General page, in the right direction
 - Auto-detect source language
 - Auto destination: into your native language, or into a second language for texts already in yours
 - Definitions and alternative translations for a word or a short phrase (Google)
@@ -49,9 +50,13 @@ sudo zypper install translate-shell
 
 ## Usage
 
+### Open the widget
+
+**Shortcuts** (right click > Configure > Shortcuts) sets the global shortcut, the same page other widgets use. Pressing it opens the widget and puts the cursor in the input. When the widget is already open, the input is focused again.
+
 ### Translate the selected text
 
-Give the widget a global shortcut (right click > Configure > Keyboard Shortcuts). Pressing it translates the text currently selected in any window, and shows the result in a small window:
+**General** > **Translate the selection** sets the shortcut that translates the text currently selected in any window, and shows the result in a small window:
 
 - a text in any other language is translated into your native language
 - a text already in your native language is translated into the target language chosen in the widget (the second language when that target is **Auto**)
@@ -59,6 +64,8 @@ Give the widget a global shortcut (right click > Configure > Keyboard Shortcuts)
 Your native language is the system language unless you pick another one in the settings (**General** > **Native language**), for example when your desktop is in English or in a language you are learning.
 
 At the top of that window, **Source** shows the text that was translated and its language. Expand it to edit the text and translate again (**Translate** or `Ctrl+Enter`), or pick the source language when the detection got it wrong. The **Destination** menu of that window picks another language by hand and translates the text shown in **Source**. Reading the selection needs **wl-clipboard** on Wayland, or **xsel** on X11 (package names are the same on the distributions above).
+
+The selection shortcut is registered with KWin, like keeping the translation window above other windows. Without KWin, nothing happens. A shortcut that was already set on the Shortcuts page is moved here on the next start, so it keeps translating the selection.
 
 ### Auto destination
 
@@ -229,3 +236,7 @@ This port includes the following changes to make the widget compatible with KDE 
 - **Original author:** [Driglu4it](https://www.pling.com/p/1395666/) (Plasma 5 version)
 - **Plasma 6 port:** rcspam
 - **License:** MIT
+
+## Technical notes
+
+The shortcut that translates the selection is registered with KWin and delivered through plasmashell. `plasmoidviewer` runs the widget in its own process, so that shortcut does nothing there. Add the widget to a panel or the desktop to use it. The shortcut that opens the widget is Plasma's normal activation shortcut and works in `plasmoidviewer`.

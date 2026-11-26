@@ -36,6 +36,16 @@ Item {
     property bool cfg_dictionaryDefault
     property bool cfg_keepAbove
     property bool cfg_keepAboveDefault
+    property string cfg_selectionShortcut
+    property string cfg_selectionShortcutDefault
+    property int cfg_selectionRequest
+    property int cfg_selectionRequestDefault
+    property string cfg_selectionScript
+    property string cfg_selectionScriptDefault
+    property bool cfg_selectionShortcutMigrated
+    property bool cfg_selectionShortcutMigratedDefault
+    property string cfg_openShortcut
+    property string cfg_openShortcutDefault
     property string title: i18n("Servers")
 
     // Edited in place; cfg_servers holds its JSON for saving. Form fields are
